@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8" />
@@ -18,6 +18,92 @@
 
     <canvas id="photoCanvas" hidden></canvas>
     <canvas id="stripCanvas" hidden></canvas>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html> -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Tamoom Photobooth</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="app">
+
+    <section id="startScreen" class="screen start-screen active">
+      <img src="assets/logo-start.svg" class="logo logo-start" />
+      <img src="assets/tamoom-sticker.svg" class="sticker" />
+
+      <p class="powered">POWERED BY TAMOOM</p>
+
+      <button id="startBtn" class="main-btn">Tap to Start</button>
+
+      <div class="features">
+        <div>
+          <strong>3s</strong>
+          <span>COUNTDOWN</span>
+        </div>
+        <div>
+          <strong>×4</strong>
+          <span>PHOTOS</span>
+        </div>
+        <div>
+            <img src="assets/starburst-four-point-icon.svg" class="feature-icon" />
+            <span>STRIP</span>
+</div>
+      </div>
+    </section>
+
+    <section id="cameraScreen" class="screen camera-screen">
+      <video id="video" autoplay playsinline></video>
+
+      <div class="camera-frame"></div>
+
+      <div id="countdown" class="countdown"></div>
+        <img
+  id="captureIcon"
+  src="assets/starburst-four-point-icon.svg"
+  class="capture-icon"
+/>
+
+<div id="flash" class="flash"></div>
+      <div class="shot-info">
+        <div id="dots" class="dots"></div>
+        <p id="shotText">SHOT 1 OF 4</p>
+      </div>
+    </section>
+
+    <section id="printScreen" class="screen print-screen">
+      <img src="assets/logo-start.svg" class="logo corner-logo" />
+      <img src="assets/tamoom-sticker.svg" class="sticker corner-sticker" />
+
+      <p class="print-title">and just like that, you bood</p>
+      <button id="printBtn" class="main-btn print-btn">Tap to Print</button>
+    </section>
+
+    <section id="finalScreen" class="screen final-screen">
+      <img src="assets/logo-start.svg" class="logo corner-logo" />
+      <img src="assets/tamoom-sticker.svg" class="sticker corner-sticker" />
+
+      <p class="final-message">
+        Your photo strip will be ready<br />
+        in 2 minutes.
+      </p>
+    </section>
+
+    <section id="errorScreen" class="screen error-screen">
+      <p class="error-title">Oops!</p>
+      <p class="error-message">Something went wrong.<br />Please try again.</p>
+    </section>
+
+    <canvas id="photoCanvas" hidden></canvas>
+    <canvas id="stripCanvas" hidden></canvas>
+
   </main>
 
   <script src="app.js"></script>

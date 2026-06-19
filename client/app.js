@@ -1,16 +1,39 @@
+const captureIcon = document.getElementById("captureIcon");
+const flash = document.getElementById("flash");
+
 const video = document.getElementById("video");
 const startBtn = document.getElementById("startBtn");
+const printBtn = document.getElementById("printBtn");
+
 const countdownEl = document.getElementById("countdown");
-const statusEl = document.getElementById("status");
+const shotText = document.getElementById("shotText");
+const dotsEl = document.getElementById("dots");
 
 const photoCanvas = document.getElementById("photoCanvas");
 const stripCanvas = document.getElementById("stripCanvas");
 
+const startScreen = document.getElementById("startScreen");
+const cameraScreen = document.getElementById("cameraScreen");
+const printScreen = document.getElementById("printScreen");
+const finalScreen = document.getElementById("finalScreen");
+const errorScreen = document.getElementById("errorScreen");
+
 let photos = [];
 let stream = null;
+let finalImage = null;
 
 const SERVER_URL = "/print";
+
 startBtn.addEventListener("click", startPhotobooth);
+// printBtn.addEventListener("click", printStrip);
+
+function showScreen(screen) {
+  [startScreen, cameraScreen, printScreen, finalScreen, errorScreen].forEach((s) => {
+    s.classList.remove("active");
+  });
+
+  screen.classList.add("active");
+}
 
 async function startCamera() {
   stream = await navigator.mediaDevices.getUserMedia({
@@ -23,13 +46,25 @@ async function startCamera() {
   video.srcObject = stream;
 }
 
+function showCaptureFlash() {
+  captureIcon.classList.add("show");
+
+  flash.classList.remove("show");
+  void flash.offsetWidth;
+  flash.classList.add("show");
+}
+
+function hideCaptureIcon() {
+  captureIcon.classList.remove("show");
+}
+
 async function startPhotobooth() {
   try {
-    startBtn.disabled = true;
-    startBtn.style.display = "none";
     photos = [];
+    finalImage = null;
 
-    statusEl.textContent = "Opening camera...";
+    startBtn.disabled = true;
+    showScreen(cameraScreen);
 
     if (!stream) {
       await startCamera();
@@ -38,33 +73,42 @@ async function startPhotobooth() {
     await wait(1000);
 
     for (let i = 0; i < 4; i++) {
-      statusEl.textContent = `Photo ${i + 1} of 4`;
+      updateShotUI(i);
       await runCountdown(3);
 
-      const photo = takePhoto();
-      photos.push(photo);
+      showCaptureFlash();
 
-      statusEl.textContent = "Captured!";
-      await wait(700);
+        const photo = takePhoto();
+        photos.push(photo);
+
+        await wait(500);
+        hideCaptureIcon();
     }
 
-    statusEl.textContent = "Creating strip...";
-    const finalImage = await createStrip();
+finalImage = await createStrip();
 
-    statusEl.textContent = "Printing...";
-    await sendToServer(finalImage);
+showScreen(finalScreen);
 
-    statusEl.textContent = "Grab your strip!";
-    countdownEl.textContent = "";
+await sendToServer(finalImage);
 
-    await wait(5000);
-    resetApp();
+await wait(7000);
+resetApp();
+
   } catch (error) {
     console.error(error);
-    statusEl.textContent = "Something went wrong. Try again.";
-    countdownEl.textContent = "";
-    startBtn.disabled = false;
-    startBtn.style.display = "block";
+    showErrorAndReset();
+  }
+}
+
+function updateShotUI(index) {
+  shotText.textContent = `SHOT ${index + 1} OF 4`;
+
+  dotsEl.innerHTML = "";
+
+  for (let i = 0; i < 4; i++) {
+    const dot = document.createElement("span");
+    dot.className = i === index ? "dot active" : "dot";
+    dotsEl.appendChild(dot);
   }
 }
 
@@ -81,11 +125,112 @@ function takePhoto() {
   return photoCanvas.toDataURL("image/png");
 }
 
+async function createStrip() {
+  const canvasWidth = 1200;
+  const canvasHeight = 1800;
+
+  stripCanvas.width = canvasWidth;
+  stripCanvas.height = canvasHeight;
+
+  const ctx = stripCanvas.getContext("2d");
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+  // 5x15 strip centered inside 10x15 canvas
+  const stripW = 520;
+  const stripH = 1800;
+  const stripX = (canvasWidth - stripW) / 2;
+  const stripY = 0;
+
+  // Left photo column
+  const photoAreaX = stripX;
+  const photoAreaY = 20;
+  const photoAreaW = 350;
+  const photoAreaH = 1760;
+
+  // Right branding column
+  const columnX = photoAreaX + photoAreaW;
+  const columnW = stripW - photoAreaW;
+
+  ctx.fillStyle = "#f6f4ef";
+  ctx.fillRect(photoAreaX, stripY, photoAreaW, stripH);
+
+  // Equal spacing between top / photos / bottom
+  const gap = 5;
+  const photoCount = 4;
+  const photoW = photoAreaW;
+  const photoH = (photoAreaH - gap * (photoCount - 1)) / photoCount;
+
+  for (let i = 0; i < photos.length; i++) {
+    const img = await loadImage(photos[i]);
+    const x = photoAreaX;
+    const y = photoAreaY + i * (photoH + gap);
+
+    drawImageCover(ctx, img, x, y, photoW, photoH);
+  }
+
+  // Bood logo top-right
+  try {
+    const boodLogo = await loadImage("assets/bood-final-page.svg");
+
+    drawImageContain(
+      ctx,
+      boodLogo,
+      columnX + 42,
+      65,
+      75,
+      95
+    );
+  } catch (error) {
+    console.warn("bood-final-page.svg failed to load", error);
+  }
+
+  // Vertical text — bigger and closer to logos
+  ctx.save();
+
+  ctx.translate(columnX + 88, 900);
+  ctx.rotate(-Math.PI / 2);
+
+  ctx.fillStyle = "#111111";
+  ctx.font = "36px Arial";
+  ctx.textAlign = "center";
+
+  ctx.fillText(
+    "July 2026 | Tamoom's Third Birthday | Proof that you were here",
+    0,
+    0
+  );
+
+  ctx.restore();
+
+  // Tamoom logo bottom-right
+  try {
+    const tamoomLogo = await loadImage("assets/final-photo-tamoom-logo.svg");
+
+    drawImageContain(
+      ctx,
+      tamoomLogo,
+      columnX + 35,
+      1570,
+      100,
+      120
+    );
+  } catch (error) {
+    console.warn("final-photo-tamoom-logo.svg failed to load", error);
+  }
+
+  return stripCanvas.toDataURL("image/png");
+}
+
 function drawImageCover(ctx, img, x, y, w, h) {
   const imgRatio = img.width / img.height;
   const boxRatio = w / h;
 
-  let sx, sy, sw, sh;
+  let sx;
+  let sy;
+  let sw;
+  let sh;
 
   if (imgRatio > boxRatio) {
     sh = img.height;
@@ -102,41 +247,25 @@ function drawImageCover(ctx, img, x, y, w, h) {
   ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
 }
 
-async function createStrip() {
-  const canvasWidth = 1200;
-  const canvasHeight = 1800;
+function drawImageContain(ctx, img, x, y, w, h) {
+  const imgRatio = img.width / img.height;
+  const boxRatio = w / h;
 
-  stripCanvas.width = canvasWidth;
-  stripCanvas.height = canvasHeight;
+  let drawW;
+  let drawH;
 
-  const ctx = stripCanvas.getContext("2d");
+  if (imgRatio > boxRatio) {
+    drawW = w;
+    drawH = w / imgRatio;
+  } else {
+    drawH = h;
+    drawW = h * imgRatio;
+  }
 
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  const drawX = x + (w - drawW) / 2;
+  const drawY = y + (h - drawH) / 2;
 
-  ctx.fillStyle = "#111111";
-  ctx.font = "bold 70px Arial";
-  ctx.textAlign = "center";
-  ctx.fillText("TAMOOM", canvasWidth / 2, 100);
-
-  const photoX = 170;
-  const photoW = 860;
-  const photoH = 330;
-
-  const startY = 170;
-  const gap = 35;
-
-  for (let i = 0; i < photos.length; i++) {
-    const img = await loadImage(photos[i]);
-    const y = startY + i * (photoH + gap);
-
-drawImageCover(ctx, img, photoX, y, photoW, photoH);  }
-
-  ctx.fillStyle = "#111111";
-  ctx.font = "36px Arial";
-  ctx.fillText("Thank you for visiting Tamoom", canvasWidth / 2, 1720);
-
-  return stripCanvas.toDataURL("image/png");
+  ctx.drawImage(img, drawX, drawY, drawW, drawH);
 }
 
 function loadImage(src) {
@@ -149,6 +278,29 @@ function loadImage(src) {
     img.src = src;
   });
 }
+
+// async function printStrip() {
+//   try {
+//     printBtn.disabled = true;
+//     printBtn.textContent = "Printing...";
+
+//     if (!finalImage) {
+//       throw new Error("No final strip created");
+//     }
+
+//     await sendToServer(finalImage);
+
+//     printBtn.textContent = "Tap to Print";
+//     showScreen(finalScreen);
+
+//     await wait(7000);
+//     resetApp();
+
+//   } catch (error) {
+//     console.error(error);
+//     showErrorAndReset();
+//   }
+// }
 
 async function sendToServer(imageData) {
   const response = await fetch(SERVER_URL, {
@@ -176,17 +328,22 @@ async function runCountdown(seconds) {
     await wait(1000);
   }
 
-  countdownEl.textContent = "📸";
-  await wait(300);
   countdownEl.textContent = "";
+}
+
+async function showErrorAndReset() {
+  showScreen(errorScreen);
+  await wait(5000);
+  resetApp();
 }
 
 function resetApp() {
   photos = [];
-  statusEl.textContent = "Tap Start";
+  finalImage = null;
   countdownEl.textContent = "";
+
   startBtn.disabled = false;
-  startBtn.style.display = "block";
+  showScreen(startScreen);
 }
 
 function wait(ms) {
